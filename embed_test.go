@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	embed "github.com/13rac1/goldmark-embed"
+	embed "goldmark-embed"
 	"github.com/yuin/goldmark"
 )
 
@@ -23,7 +23,7 @@ func TestMeta(t *testing.T) {
 		panic(err)
 	}
 	if buf.String() != `<h1>Hello goldmark-embed</h1>
-<p><iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></p>
+<p><iframe class="embeded-video youtube-embeded-video" width="100%" height="400" src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></p>
 ` {
 		t.Error("Invalid HTML output")
 		t.Log(buf.String())
