@@ -3,6 +3,7 @@ package embed
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -16,6 +17,11 @@ import (
 type Option func(*embedExtension)
 
 type embedExtension struct{}
+
+const (
+	EmbededVideoProviderYouTube  = "youtube"
+	EmbededVideoProviderBilibili = "bilibili"
+)
 
 // New returns a new Embed extension.
 func New(opts ...Option) goldmark.Extender {
@@ -39,25 +45,27 @@ func (e *embedExtension) Extend(m goldmark.Markdown) {
 	)
 }
 
-// YouTube struct represents a YouTube Video embed of the Markdown text.
-type YouTube struct {
+// EmbededVideo struct represents a EmbededVideo embed of the Markdown text.
+type EmbededVideo struct {
 	ast.Image
-	Video string
+	Provider string
+	VID      string
 }
 
-// KindYouTube is a NodeKind of the YouTube node.
-var KindYouTube = ast.NewNodeKind("YouTube")
+// KindEmbededVideo is a NodeKind of the YouTube node.
+var KindEmbededVideo = ast.NewNodeKind("EmbededVideo")
 
 // Kind implements Node.Kind.
-func (n *YouTube) Kind() ast.NodeKind {
-	return KindYouTube
+func (n *EmbededVideo) Kind() ast.NodeKind {
+	return KindEmbededVideo
 }
 
-// NewYouTube returns a new YouTube node.
-func NewYouTube(img *ast.Image, v string) *YouTube {
-	c := &YouTube{
-		Image: *img,
-		Video: v,
+// NewEmbededVideo returns a new YouTube node.
+func NewEmbededVideo(img *ast.Image, provider, vid string) *EmbededVideo {
+	c := &EmbededVideo{
+		Image:    *img,
+		Provider: provider,
+		VID:      vid,
 	}
 	c.Destination = img.Destination
 	c.Title = img.Title
@@ -94,8 +102,28 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 		if v == "" {
 			return ast.WalkContinue, nil
 		}
-		yt := NewYouTube(img, v)
-		n.Parent().ReplaceChild(n.Parent(), n, yt)
+
+		// Embed a video?
+		vid := ""
+		provider := EmbededVideoProviderYouTube
+		if u.Host == "www.youtube.com" && u.Path == "/watch" {
+			// this is a youtube video: https://www.youtube.com/watch?v={vid}
+			vid = u.Query().Get("v")
+		} else if u.Host == "youtu.be" {
+			// this is a youtube video too: https://youtu.be/{vid}
+			vid = u.Path[1:]
+		} else if u.Host == "www.bilibili.com" && strings.HasPrefix(u.Path, "/video/") {
+			// this is a bilibili video: https://www.bilibili.com/video/{vid}
+			vid = u.Path[7:]
+			provider = EmbededVideoProviderBilibili
+		} else {
+			return ast.WalkContinue, nil
+		}
+
+		if vid == "" {
+			yt := NewEmbededVideo(img, provider, v)
+			n.Parent().ReplaceChild(n.Parent(), n, yt)
+		}
 
 		return ast.WalkContinue, nil
 	}
@@ -114,16 +142,20 @@ func NewHTMLRenderer() renderer.NodeRenderer {
 
 // RegisterFuncs implements NodeRenderer.RegisterFuncs.
 func (r *HTMLRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
-	reg.Register(KindYouTube, r.renderYouTubeVideo)
+	reg.Register(KindEmbededVideo, r.renderEmbededVideo)
 }
 
-func (r *HTMLRenderer) renderYouTubeVideo(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *HTMLRenderer) renderEmbededVideo(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
 	if entering {
 		return ast.WalkContinue, nil
 	}
 
-	yt := node.(*YouTube)
+	ev := node.(*EmbededVideo)
+	if ev.Provider == EmbededVideoProviderYouTube {
+		w.Write([]byte(`<iframe class="embeded-video youtube-embeded-video" width="100%" height="400" src="https://www.youtube.com/embed/` + ev.VID + `" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`))
+	} else if ev.Provider == EmbededVideoProviderBilibili {
+		w.Write([]byte(`<iframe class="embeded-video bilibili-embeded-video" width="100%" height="400" src="//player.bilibili.com/player.html?bvid=` + ev.VID + `&page=1" scrolling="no" border="0" framespacing="0" allowfullscreen="true" frameborder="no"></iframe>`))
+	}
 
-	w.Write([]byte(`<iframe width="560" height="315" src="https://www.youtube.com/embed/` + yt.Video + `" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`))
 	return ast.WalkContinue, nil
 }

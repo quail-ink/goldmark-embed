@@ -5,7 +5,10 @@ the Markdown `![]()` image embed syntax to support additional media formats.
 
 [goldmark]: http://github.com/yuin/goldmark
 
-YouTube only at first.
+## Supported Video Providers
+
+* YouTube
+* Bilibili
 
 ## Demo
 
