@@ -1,4 +1,4 @@
-module goldmark-embed
+module github.com/quail-ink/goldmark-embed
 
 go 1.20
 
