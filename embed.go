@@ -82,6 +82,7 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 		if !entering {
 			return ast.WalkContinue, nil
 		}
+
 		if n.Kind() != ast.KindImage {
 			return ast.WalkContinue, nil
 		}
@@ -95,34 +96,30 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 			return ast.WalkContinue, nil
 		}
 
-		if u.Host != "www.youtube.com" || u.Path != "/watch" {
-			return ast.WalkContinue, nil
-		}
-		v := u.Query().Get("v")
-		if v == "" {
-			return ast.WalkContinue, nil
-		}
-
 		// Embed a video?
 		vid := ""
 		provider := EmbededVideoProviderYouTube
+		fmt.Printf("u: %+v, %+v\n", u.Host, u.Path)
 		if u.Host == "www.youtube.com" && u.Path == "/watch" {
 			// this is a youtube video: https://www.youtube.com/watch?v={vid}
 			vid = u.Query().Get("v")
 		} else if u.Host == "youtu.be" {
 			// this is a youtube video too: https://youtu.be/{vid}
 			vid = u.Path[1:]
+			vid = strings.Trim(vid, "/")
 		} else if u.Host == "www.bilibili.com" && strings.HasPrefix(u.Path, "/video/") {
 			// this is a bilibili video: https://www.bilibili.com/video/{vid}
 			vid = u.Path[7:]
+			vid = strings.Trim(vid, "/")
 			provider = EmbededVideoProviderBilibili
 		} else {
 			return ast.WalkContinue, nil
 		}
 
-		if vid == "" {
-			yt := NewEmbededVideo(img, provider, v)
-			n.Parent().ReplaceChild(n.Parent(), n, yt)
+		if vid != "" {
+			ev := NewEmbededVideo(img, provider, vid)
+			n.Parent().SetAttributeString("class", []byte("embeded-video-wrapper"))
+			n.Parent().ReplaceChild(n.Parent(), n, ev)
 		}
 
 		return ast.WalkContinue, nil
