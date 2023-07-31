@@ -99,7 +99,6 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 		// Embed a video?
 		vid := ""
 		provider := EmbededVideoProviderYouTube
-		fmt.Printf("u: %+v, %+v\n", u.Host, u.Path)
 		if u.Host == "www.youtube.com" && u.Path == "/watch" {
 			// this is a youtube video: https://www.youtube.com/watch?v={vid}
 			vid = u.Query().Get("v")
