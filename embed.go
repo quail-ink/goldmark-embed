@@ -19,8 +19,9 @@ type Option func(*embedExtension)
 type embedExtension struct{}
 
 const (
-	EmbededVideoProviderYouTube  = "youtube"
-	EmbededVideoProviderBilibili = "bilibili"
+	EmbededProviderYouTube  = "youtube"
+	EmbededProviderBilibili = "bilibili"
+	EmbededProviderTwitter  = "twitter"
 )
 
 // New returns a new Embed extension.
@@ -45,30 +46,26 @@ func (e *embedExtension) Extend(m goldmark.Markdown) {
 	)
 }
 
-// EmbededVideo struct represents a EmbededVideo embed of the Markdown text.
-type EmbededVideo struct {
+// Embeded struct represents a Embeded embed of the Markdown text.
+type Embeded struct {
 	ast.Image
 	Provider string
 	VID      string
+	Theme    string
 }
 
-// KindEmbededVideo is a NodeKind of the YouTube node.
-var KindEmbededVideo = ast.NewNodeKind("EmbededVideo")
+// KindEmbeded is a NodeKind of the YouTube node.
+var KindEmbeded = ast.NewNodeKind("Embeded")
 
 // Kind implements Node.Kind.
-func (n *EmbededVideo) Kind() ast.NodeKind {
-	return KindEmbededVideo
+func (n *Embeded) Kind() ast.NodeKind {
+	return KindEmbeded
 }
 
-// NewEmbededVideo returns a new YouTube node.
-func NewEmbededVideo(img *ast.Image, provider, vid string) *EmbededVideo {
-	c := &EmbededVideo{
-		Image:    *img,
-		Provider: provider,
-		VID:      vid,
-	}
-	c.Destination = img.Destination
-	c.Title = img.Title
+// NewEmbeded returns a new YouTube node.
+func NewEmbeded(c *Embeded) *Embeded {
+	c.Destination = c.Image.Destination
+	c.Title = c.Image.Title
 
 	return c
 }
@@ -98,7 +95,8 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 
 		// Embed a video?
 		vid := ""
-		provider := EmbededVideoProviderYouTube
+		theme := "dark"
+		provider := EmbededProviderYouTube
 		if u.Host == "www.youtube.com" && u.Path == "/watch" {
 			// this is a youtube video: https://www.youtube.com/watch?v={vid}
 			vid = u.Query().Get("v")
@@ -110,14 +108,25 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 			// this is a bilibili video: https://www.bilibili.com/video/{vid}
 			vid = u.Path[7:]
 			vid = strings.Trim(vid, "/")
-			provider = EmbededVideoProviderBilibili
+			provider = EmbededProviderBilibili
+		} else if u.Host == "twitter.com" || u.Host == "m.twitter.com" {
+			// https://twitter.com/{username}/status/{id number}?theme=dark
+			vid = string(img.Destination)
+			theme = u.Query().Get("theme")
+			provider = EmbededProviderTwitter
 		} else {
 			return ast.WalkContinue, nil
 		}
 
 		if vid != "" {
-			ev := NewEmbededVideo(img, provider, vid)
-			n.Parent().SetAttributeString("class", []byte("embeded-video-wrapper"))
+			ev := NewEmbeded(
+				&Embeded{
+					Image:    *img,
+					Provider: provider,
+					VID:      vid,
+					Theme:    theme,
+				})
+			n.Parent().SetAttributeString("class", []byte("embeded-object-wrapper"))
 			n.Parent().ReplaceChild(n.Parent(), n, ev)
 		}
 
@@ -138,19 +147,27 @@ func NewHTMLRenderer() renderer.NodeRenderer {
 
 // RegisterFuncs implements NodeRenderer.RegisterFuncs.
 func (r *HTMLRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
-	reg.Register(KindEmbededVideo, r.renderEmbededVideo)
+	reg.Register(KindEmbeded, r.renderEmbeded)
 }
 
-func (r *HTMLRenderer) renderEmbededVideo(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *HTMLRenderer) renderEmbeded(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
 	if entering {
 		return ast.WalkContinue, nil
 	}
 
-	ev := node.(*EmbededVideo)
-	if ev.Provider == EmbededVideoProviderYouTube {
-		w.Write([]byte(`<iframe class="embeded-video youtube-embeded-video" width="100%" height="400" src="https://www.youtube.com/embed/` + ev.VID + `" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`))
-	} else if ev.Provider == EmbededVideoProviderBilibili {
-		w.Write([]byte(`<iframe class="embeded-video bilibili-embeded-video" width="100%" height="400" src="//player.bilibili.com/player.html?bvid=` + ev.VID + `&page=1" scrolling="no" border="0" framespacing="0" allowfullscreen="true" frameborder="no"></iframe>`))
+	ev := node.(*Embeded)
+	if ev.Provider == EmbededProviderYouTube {
+		w.Write([]byte(`<iframe class="embeded-object youtube-embeded-object" width="100%" height="400" src="https://www.youtube.com/embed/` + ev.VID + `" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`))
+	} else if ev.Provider == EmbededProviderBilibili {
+		w.Write([]byte(`<iframe class="embeded-object bilibili-embeded-object" width="100%" height="400" src="//player.bilibili.com/player.html?bvid=` + ev.VID + `&page=1" scrolling="no" border="0" framespacing="0" allowfullscreen="true" frameborder="no"></iframe>`))
+	} else if ev.Provider == EmbededProviderTwitter {
+		html, err := GetTweetOembedHtml(ev.VID, ev.Theme)
+		if err != nil || html == "" {
+			html = fmt.Sprintf(`<span class="embeded-object twitter-embeded-object error">Failed to load tweet from %s</span>`, ev.VID)
+		} else {
+			html = fmt.Sprintf(`<span class="embeded-object twitter-embeded-object">%s</span>`, html)
+		}
+		w.Write([]byte(html))
 	}
 
 	return ast.WalkContinue, nil
