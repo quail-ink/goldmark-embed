@@ -93,7 +93,7 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 			return ast.WalkContinue, nil
 		}
 
-		// Embed a video?
+		// Embed an object?
 		vid := ""
 		theme := "dark"
 		provider := EmbededProviderYouTube
@@ -104,16 +104,22 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 			// this is a youtube video too: https://youtu.be/{vid}
 			vid = u.Path[1:]
 			vid = strings.Trim(vid, "/")
+
 		} else if u.Host == "www.bilibili.com" && strings.HasPrefix(u.Path, "/video/") {
 			// this is a bilibili video: https://www.bilibili.com/video/{vid}
 			vid = u.Path[7:]
 			vid = strings.Trim(vid, "/")
 			provider = EmbededProviderBilibili
-		} else if u.Host == "twitter.com" || u.Host == "m.twitter.com" {
+
+		} else if u.Host == "twitter.com" || u.Host == "m.twitter.com" || u.Host == "x.com" {
 			// https://twitter.com/{username}/status/{id number}?theme=dark
 			vid = string(img.Destination)
+			if u.Host == "x.com" {
+				vid = strings.Replace(vid, "x.com", "twitter.com", 1)
+			}
 			theme = u.Query().Get("theme")
 			provider = EmbededProviderTwitter
+			
 		} else {
 			return ast.WalkContinue, nil
 		}

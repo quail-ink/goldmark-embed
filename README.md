@@ -1,38 +1,35 @@
 # goldmark-embed
 
-goldmark-embed is an extension for the [goldmark][goldmark] library that extends
-the Markdown `![]()` image embed syntax to support additional media formats.
+This is a fork from https://github.com/13rac1/goldmark-embed, to use Markdown `![]()` image embed syntax to support additional object formats.
 
 [goldmark]: http://github.com/yuin/goldmark
 
 ## Supported Video Providers
 
-* YouTube
-* Bilibili
+* YouTube Video
+* Bilibili Video
+* X's Tweet Oembed Widget
 
 ## Demo
 
 This markdown:
 
 ```md
-# Hello goldmark-embed
-
-![](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+![](https://youtu.be/dQw4w9WgXcQ?si=0kalBBLQpIXT1Wcd)
 ```
 
-Becomes this HTML:
+```md
+![](https://www.bilibili.com/video/BV1uT4y1P7CX)
+```
 
-```html
-<h1>Hello goldmark-embed</h1>
-<p><iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ" frameborder="0"
-allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-allowfullscreen></iframe></p>
+```md
+![](https://twitter.com/NASA/status/1704954156149084293)
 ```
 
 ### Installation
 
 ```bash
-go get github.com/13rac1/goldmark-embed
+go get github.com/quail.ink/goldmark-embed
 ```
 
 ## Usage
