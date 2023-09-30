@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
@@ -49,6 +50,8 @@ func (e *embedExtension) Extend(m goldmark.Markdown) {
 // Embeded struct represents a Embeded embed of the Markdown text.
 type Embeded struct {
 	ast.Image
+	// ast.BaseBlock
+	element  string
 	Provider string
 	VID      string
 	Theme    string
@@ -87,6 +90,7 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 		img := n.(*ast.Image)
 		u, err := url.Parse(string(img.Destination))
 		if err != nil {
+			logrus.WithError(err).Println("goldmark-embed: failed to parse url")
 			msg := ast.NewString([]byte(fmt.Sprintf("<!-- %s -->", err)))
 			msg.SetCode(true)
 			n.Parent().InsertAfter(n.Parent(), n, msg)
@@ -119,7 +123,7 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 			}
 			theme = u.Query().Get("theme")
 			provider = EmbededProviderTwitter
-			
+
 		} else {
 			return ast.WalkContinue, nil
 		}
@@ -132,7 +136,6 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 					VID:      vid,
 					Theme:    theme,
 				})
-			n.Parent().SetAttributeString("class", []byte("embeded-object-wrapper"))
 			n.Parent().ReplaceChild(n.Parent(), n, ev)
 		}
 
@@ -163,15 +166,15 @@ func (r *HTMLRenderer) renderEmbeded(w util.BufWriter, source []byte, node ast.N
 
 	ev := node.(*Embeded)
 	if ev.Provider == EmbededProviderYouTube {
-		w.Write([]byte(`<iframe class="embeded-object youtube-embeded-object" width="100%" height="400" src="https://www.youtube.com/embed/` + ev.VID + `" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`))
+		w.Write([]byte(`<div class="embeded-object-wrapper"><iframe class="embeded-object youtube-embeded-object" width="100%" height="400" src="https://www.youtube.com/embed/` + ev.VID + `" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`))
 	} else if ev.Provider == EmbededProviderBilibili {
-		w.Write([]byte(`<iframe class="embeded-object bilibili-embeded-object" width="100%" height="400" src="//player.bilibili.com/player.html?bvid=` + ev.VID + `&page=1" scrolling="no" border="0" framespacing="0" allowfullscreen="true" frameborder="no"></iframe>`))
+		w.Write([]byte(`<div class="embeded-object-wrapper"><iframe class="embeded-object bilibili-embeded-object" width="100%" height="400" src="//player.bilibili.com/player.html?bvid=` + ev.VID + `&page=1" scrolling="no" border="0" framespacing="0" allowfullscreen="true" frameborder="no"></iframe></div>`))
 	} else if ev.Provider == EmbededProviderTwitter {
 		html, err := GetTweetOembedHtml(ev.VID, ev.Theme)
 		if err != nil || html == "" {
-			html = fmt.Sprintf(`<span class="embeded-object twitter-embeded-object error">Failed to load tweet from %s</span>`, ev.VID)
+			html = fmt.Sprintf(`<div class="embeded-object-wrapper normal-wrapper"><div class="embeded-object twitter-embeded-object normal-object error">Failed to load tweet from %s</div></div>`, ev.VID)
 		} else {
-			html = fmt.Sprintf(`<span class="embeded-object twitter-embeded-object">%s</span>`, html)
+			html = fmt.Sprintf(`<div class="embeded-object-wrapper normal-wrapper"><div class="embeded-object twitter-embeded-object normal-object">%s</div></div>`, html)
 		}
 		w.Write([]byte(html))
 	}
