@@ -20,9 +20,10 @@ type Option func(*embedExtension)
 type embedExtension struct{}
 
 const (
-	EmbededProviderYouTube  = "youtube"
-	EmbededProviderBilibili = "bilibili"
-	EmbededProviderTwitter  = "twitter"
+	EmbededProviderYouTube     = "youtube"
+	EmbededProviderBilibili    = "bilibili"
+	EmbededProviderTwitter     = "twitter"
+	EmbededProviderTradingView = "tradingview"
 )
 
 // New returns a new Embed extension.
@@ -119,10 +120,17 @@ func (a *astTransformer) Transform(node *ast.Document, reader text.Reader, pc pa
 			// https://twitter.com/{username}/status/{id number}?theme=dark
 			vid = string(img.Destination)
 			if u.Host == "x.com" {
+				// replace x.com with twitter.com, because x.com doesn't support using x.com as embeded source
 				vid = strings.Replace(vid, "x.com", "twitter.com", 1)
 			}
 			theme = u.Query().Get("theme")
 			provider = EmbededProviderTwitter
+
+		} else if u.Host == "tradingview.com" || u.Host == "www.tradingview.com" {
+			// https://www.tradingview.com/chart/UC0wWW9o/?symbol=BITFINEX%3ABTCUSD
+			vid = u.Query().Get("symbol")
+			theme = u.Query().Get("theme")
+			provider = EmbededProviderTradingView
 
 		} else {
 			return ast.WalkContinue, nil
@@ -167,14 +175,25 @@ func (r *HTMLRenderer) renderEmbeded(w util.BufWriter, source []byte, node ast.N
 	ev := node.(*Embeded)
 	if ev.Provider == EmbededProviderYouTube {
 		w.Write([]byte(`<div class="embeded-object-wrapper"><iframe class="embeded-object youtube-embeded-object" width="100%" height="400" src="https://www.youtube.com/embed/` + ev.VID + `" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`))
+
 	} else if ev.Provider == EmbededProviderBilibili {
 		w.Write([]byte(`<div class="embeded-object-wrapper"><iframe class="embeded-object bilibili-embeded-object" width="100%" height="400" src="//player.bilibili.com/player.html?bvid=` + ev.VID + `&page=1" scrolling="no" border="0" framespacing="0" allowfullscreen="true" frameborder="no"></iframe></div>`))
+
 	} else if ev.Provider == EmbededProviderTwitter {
 		html, err := GetTweetOembedHtml(ev.VID, ev.Theme)
 		if err != nil || html == "" {
 			html = fmt.Sprintf(`<div class="embeded-object-wrapper normal-wrapper"><div class="embeded-object twitter-embeded-object normal-object error">Failed to load tweet from %s</div></div>`, ev.VID)
 		} else {
 			html = fmt.Sprintf(`<div class="embeded-object-wrapper normal-wrapper"><div class="embeded-object twitter-embeded-object normal-object">%s</div></div>`, html)
+		}
+		w.Write([]byte(html))
+
+	} else if ev.Provider == EmbededProviderTradingView {
+		html, err := GetTraddingViewEmbedHtml(ev.VID, ev.Theme)
+		if err != nil || html == "" {
+			html = fmt.Sprintf(`<div class="embeded-object-wrapper normal-wrapper"><div class="embeded-object tradingview-embeded-object error">Failed to load tradingview chart from %s</div></div>`, ev.VID)
+		} else {
+			html = fmt.Sprintf(`<div class="embeded-object-wrapper auto-resize"><div class="embeded-object tradingview-embeded-object no-border">%s</div></div>`, html)
 		}
 		w.Write([]byte(html))
 	}
