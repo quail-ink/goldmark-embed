@@ -4,11 +4,12 @@ This is a fork from https://github.com/13rac1/goldmark-embed, to use Markdown `!
 
 [goldmark]: http://github.com/yuin/goldmark
 
-## Supported Video Providers
+## Supported Providers
 
 * YouTube Video
 * Bilibili Video
 * X's Tweet Oembed Widget
+* TradingView Widget
 
 ## Demo
 
@@ -24,6 +25,10 @@ This markdown:
 
 ```md
 ![](https://twitter.com/NASA/status/1704954156149084293)
+```
+
+```md
+![](https://www.tradingview.com/chart/AA0aBB8c/?symbol=BITFINEX%3ABTCUSD)
 ```
 
 ### Installation
